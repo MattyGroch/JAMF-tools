@@ -79,6 +79,7 @@ fi
 
 prompt_for_updates_force () {
 # Force Updates
+  echo "We're forcing updates."
   /usr/local/bin/jamf policy -event $updatePolicy &
 # Call jamfhelper
 /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -title "Service Desk Alert" -heading "Updates available from your friendly neighborhood Service Desk" -description "You have these updates available:

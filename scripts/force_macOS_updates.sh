@@ -1,14 +1,17 @@
 #!/bin/bash
 
+# Get environment variables
 jssAPIUsername=$4
 jssAPIPassword=$5
 jssAddress=$6
+SNOOZELIMIT=$7
+updatePolicy=$8
 
+# Define serial key and file paths
 serialnumber=$(ioreg -l | grep IOPlatformSerialNumber|awk '{gsub(/"/,""); print $4}')
 xmlfileread="/tmp/XMLFILEREAD.xml"
 xmlfilewrite="/tmp/XMLFILEWRITE.xml"
-SNOOZELIMIT=$7
-updatePolicy=$8
+
 
 # Get list of updates
 LISTOFUPDATES=`softwareupdate -l | egrep -v "Update Tool|Finding available|found the following" | grep -v '\*'|cut -d , -f 1`
@@ -40,17 +43,14 @@ cat /dev/null > $xmlfilewrite
 
 if [ $RESULT -eq 0 ]
   then
+    echo "User is running updates."
     /usr/local/bin/jamf policy -event $updatePolicy
-    exit 0
   else
+    echo "User snoozed updates."
     SNOOZEVALUE=$((SNOOZEVALUE+1))
     echo "<computer><extension_attributes><extension_attribute><id>13</id><name>OS Update Snoozes</name><type>Integer</type><value>$SNOOZEVALUE</value></extension_attribute></extension_attributes></computer>" > $xmlfilewrite
     curl -s -k -u ${jssAPIUsername}:${jssAPIPassword} -X PUT -H "Content-Type: application/xml" -d "@${xmlfilewrite}" ${jssAddress}/JSSResource/computers/serialnumber/${serialnumber}
-    exit 0
 fi
-
-
-exit 0
 }
 
 prompt_for_updates_limit () {
@@ -67,15 +67,14 @@ cat /dev/null > $xmlfilewrite
 
 if [ $RESULT -eq 0 ]
   then
+    echo "User is updating on final warning."
     /usr/local/bin/jamf policy -event $updatePolicy
-    exit 0
   else
+    echo "User snoozed final warning."
     SNOOZEVALUE=$((SNOOZEVALUE+1))
     echo "<computer><extension_attributes><extension_attribute><id>13</id><name>OS Update Snoozes</name><type>Integer</type><value>$SNOOZEVALUE</value></extension_attribute></extension_attributes></computer>" > $xmlfilewrite
     curl -s -k -u ${jssAPIUsername}:${jssAPIPassword} -X PUT -H "Content-Type: application/xml" -d "@${xmlfilewrite}" ${jssAddress}/JSSResource/computers/serialnumber/${serialnumber}
-    exit 0
 fi
-
 }
 
 prompt_for_updates_force () {
@@ -104,9 +103,11 @@ if [ -z $LISTOFUPDATES ]
 elif [ "${SNOOZEVALUE:-0}" -lt $((SNOOZELIMIT - 1)) ]
   then
     prompt_for_updates_snooze
+    exit 0
 elif [ $SNOOZEVALUE -eq $((SNOOZELIMIT - 1)) ]
   then
     prompt_for_updates_limit
+    exit 0
 elif [ $SNOOZEVALUE -ge $SNOOZELIMIT ]
   then
     reset_snooze_counter
